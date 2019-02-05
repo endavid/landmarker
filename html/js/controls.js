@@ -5,11 +5,26 @@ import UiUtils from './uiutils.js';
 const { saveAs } = window;
 
 const landmarkPresets = [
-  { name: "left eye", value: "LEye" },
-  { name: "right eye", value: "REye" },
-  { name: "nose", value: "Nose" },
+  { name: 'left eye', value: 'LEye' },
+  { name: 'right eye', value: 'REye' },
+  { name: 'nose', value: 'Nose' },
 ];
 
+/*
+  E.g.
+  "August2000-01.jp2": {
+    "Nose": {
+      "x": 848.00625,
+      "y": 561.35625
+    }
+  },
+  "August2000-02.jp2": {
+    "Nose": {
+      "x": 521.40625,
+      "y": 1094.21875
+    }
+  },
+*/
 let annotations = {};
 
 const landmarkIcon = new Image();
@@ -33,12 +48,18 @@ function progressBarUpdate(ratio) {
   $('#progressBar').css('width', `${percentage}%`);
 }
 
+function getFileNameWithoutExtension(file) {
+  const iSlash = file.lastIndexOf('/') + 1;
+  const iDot = file.lastIndexOf('.');
+  return file.substr(iSlash, iDot - iSlash);
+}
+
 // https://stackoverflow.com/a/17130415/1765629
 function getMousePos(canvas, evt) {
-  var rect = canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
   return {
     x: evt.clientX - rect.left,
-    y: evt.clientY - rect.top
+    y: evt.clientY - rect.top,
   };
 }
 
@@ -48,21 +69,69 @@ function getSelectedLandmark() {
 
 function updateLandmarkPosition(imageId, position) {
   const landmark = getSelectedLandmark();
-  annotations[imageId][landmark] = {x: position.x, y: position.y};
+  annotations[imageId][landmark] = { x: position.x, y: position.y };
 }
 
-function saveLandmarks() {
-  const text = JSON.stringify(annotations, null, '  ');
+function saveJson(filename, json) {
+  const text = JSON.stringify(json, null, '  ');
   const t = `text/plain;charset=${document.characterSet}`;
-  saveAs(
-    new Blob([text], { type: t }),
-    'landmarks.json',
-  );
+  saveAs(new Blob([text], { type: t }), filename);
+}
+
+function saveLandmarksPlain() {
+  const filename = 'landmarks.json';
+  saveJson(filename, annotations);
+  setInfo(`File saved: ${filename}`);
+}
+
+function saveLandmarksKeypoints() {
+  const json = {
+    version: '1.0',
+    people: [
+      {
+        face_keypoints: [],
+        pose_keypoints: [],
+        hand_right_keypoints: [],
+        hand_left_keypoints: [],
+      },
+    ],
+  };
+  // we trust humans to be 90% accurate
+  const confidence = 0.9;
+  const imgIds = Object.keys(annotations);
+  const files = [];
+  imgIds.forEach((id) => {
+    const coords = [];
+    landmarkPresets.forEach((preset) => {
+      const key = preset.value;
+      const lnd = annotations[id][key];
+      coords.push(lnd.x);
+      coords.push(lnd.y);
+      coords.push(confidence);
+    });
+    json.people[0].pose_keypoints = coords;
+    const imgName = getFileNameWithoutExtension(id);
+    const filename = `${imgName}_keypoints.json`;
+    saveJson(filename, json);
+    files.push(filename);
+  });
+  setInfo(`Files saved: ${files.join(' ')}`);
+}
+
+function saveLandmarks(e) {
+  const type = $(`#${e.target.id}_select`).val();
+  if (type === '.json') {
+    saveLandmarksPlain();
+  } else if (type === 'keypoints.json') {
+    saveLandmarksKeypoints();
+  } else {
+    setError('Unknown format');
+  }
 }
 
 function showLandmarks() {
   const imgIds = Object.keys(annotations);
-  imgIds.forEach(id => {
+  imgIds.forEach((id) => {
     const pos = annotations[id][getSelectedLandmark()];
     const cnvs = document.getElementById(id);
     cnvs.drawIconImageCoords(pos);
@@ -73,9 +142,9 @@ function populateControls() {
   function createCanvas(obj) {
     const width = 320;
     const canvas = $('<canvas>').attr('id', obj.name);
-    var img = new Image();
-    img.onload = function() {
-      const cnvs = document.getElementById(obj.name)
+    const img = new Image();
+    img.onload = () => {
+      const cnvs = document.getElementById(obj.name);
       const ctx = cnvs.getContext('2d');
       const height = img.height * width / img.width;
       cnvs.width = width;
@@ -89,60 +158,63 @@ function populateControls() {
           ctx.drawImage(landmarkIcon, pos.x - 10, pos.y - 10, 20, 20);
         }
       }
-      cnvs.drawIconImageCoords = function(pos) {
+      cnvs.drawIconImageCoords = (pos) => {
         if (pos) {
           drawIconCanvas({
             x: pos.x * width / img.width,
-            y: pos.y * height / img.height
+            y: pos.y * height / img.height,
           });
         } else {
           drawIconCanvas();
         }
-      }
+      };
       function drawIcon(e) {
-        var pos = getMousePos(cnvs, e);
+        const pos = getMousePos(cnvs, e);
         drawIconCanvas(pos);
         updateLandmarkPosition(obj.name, {
           x: pos.x * img.width / width,
-          y: pos.y * img.height / height
+          y: pos.y * img.height / height,
         });
       }
-      cnvs.addEventListener('mouseup', e => {
+      cnvs.addEventListener('mouseup', (e) => {
         isDragging = false;
         drawIcon(e);
       });
-      cnvs.addEventListener('mousedown', e => {
+      cnvs.addEventListener('mousedown', (e) => {
         isDragging = true;
         drawIcon(e);
-      })
-      cnvs.addEventListener('mousemove', e => {
+      });
+      cnvs.addEventListener('mousemove', (e) => {
         if (isDragging) {
           drawIcon(e);
         }
-      })
+      });
     };
     img.src = obj.uri;
     return canvas;
   }
 
   function onChangeFileBrowser(values) {
-    $("#mainarea").empty();
+    $('#mainarea').empty();
     annotations = {};
     for (let i = 0; i < values.length; i += 1) {
       annotations[values[i].name] = {};
-      $("#mainarea").append(createCanvas(values[i]));
+      $('#mainarea').append(createCanvas(values[i]));
     }
   }
 
   // Create the UI controls
   UiUtils.addGroup('gFile', 'File', [
     UiUtils.createFileBrowser('fileBrowser', 'load images', true, onChangeFileBrowser),
-    UiUtils.createButton('saveFile', 'save landmarks', saveLandmarks)
+    UiUtils.createButtonWithOptions('saveFile', 'save landmarks', 'as',
+      [
+        { name: 'Json', value: '.json' },
+        { name: 'Keypoints', value: 'keypoints.json' },
+      ],
+      saveLandmarks),
   ]);
   UiUtils.addGroup('gLandmarks', 'Landmarks', [
-    UiUtils.createDropdownList('landmark', landmarkPresets, (obj) => {
-      showLandmarks();
-    })
+    UiUtils.createDropdownList('landmark', landmarkPresets, showLandmarks),
   ]);
 }
 
