@@ -5,9 +5,20 @@ import UiUtils from './uiutils.js';
 const { saveAs } = window;
 
 const landmarkPresets = [
-  { name: 'left eye', value: 'LEye' },
-  { name: 'right eye', value: 'REye' },
-  { name: 'nose', value: 'Nose' },
+  { value: 'Nose', name: 'nose' },
+  { value: 'Neck', name: 'neck' },
+  { value: 'RShoulder', name: 'right shoulder' },
+  { value: 'RElbow', name: 'right elbow' },
+  { value: 'RWrist', name: 'right wrist' },
+  { value: 'LShoulder', name: 'left shoulder' },
+  { value: 'LElbow', name: 'left elbow' },
+  { value: 'LWrist', name: 'left wrist' },
+  { value: 'RHip', name: 'right hip' },
+  { value: 'RKnee', name: 'right knee' },
+  { value: 'RAnkle', name: 'right ankle' },
+  { value: 'LHip', name: 'left hip' },
+  { value: 'LKnee', name: 'left knee' },
+  { value: 'LAnkle', name: 'left ankle' },
 ];
 
 /*
