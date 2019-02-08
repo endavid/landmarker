@@ -122,7 +122,7 @@ function saveLandmarksKeypoints() {
     });
     json.people[0].pose_keypoints = coords;
     const imgName = getFileNameWithoutExtension(id);
-    const filename = `${imgName}_keypoints.json`;
+    const filename = `${imgName}.json`;
     saveJson(filename, json);
     files.push(filename);
   });
